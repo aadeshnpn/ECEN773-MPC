@@ -24,6 +24,7 @@ MAX_SPEED = 25
 MIN_SPEED = 10
 
 speed_limit = MAX_SPEED
+u1 = []
 
 
 def solvelqrtracking(data):
@@ -38,7 +39,7 @@ def solvelqrtracking(data):
     A = np.matrix([[0, 0, 0], [0, 0, v], [0, 0, 0]])
     B = np.matrix([[1, 0], [0, 0], [1/(lf*sa), 0]])
     Q = np.matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-    R = np.matrix([[1.0, 0.0], [0.0, 1.0]]) * 0.1
+    R = np.matrix([[0.8, 0.0], [0.0, 2.0]])
     dt = 0.1
     t = 0.0
     initial_state = np.matrix([x, y, psi]).T
@@ -47,23 +48,28 @@ def solvelqrtracking(data):
         [data['ptsx'][0], data['ptsy'][0], 0]).T
     uref = np.matrix([0.5, 0.0]).T
     X = initial_state   # np.matrix([0, 0, 0]).T
-    u1 = None
+    u2 = None
     while t <= 1.0:
         u = lqr_ref_tracking(X, ref_state, uref, A, B, Q, R, dt)
-        if u1 is None:
-            u1 = u
+        if u2 is None:
+            u2 = u
+        # u2.append(u)
         X = process(A, B, X, u)
         t += dt
     # print ('input from solver', u1)
-    return u1
+    return u2
 
 @sio.on('telemetry')
 def telemetry(sid, data):
     if data:
         # Tracking points
-        # print ('telemetry', sid, data)
+        print ('telemetry', sid, data)
         speed = float(data["speed"])
+        # global u1
+        # if len(u1) <= 0:
         u1 = solvelqrtracking(data)
+        #    u1.reverse()
+        #    print ('first u', u1)
         try:
             global speed_limit
             if speed > speed_limit:
@@ -75,9 +81,11 @@ def telemetry(sid, data):
             #    np.linspace(
             #        np.pi/2 - np.pi/18, np.pi/2 + np.pi/18, 10))
             # throttle = 0.25
-
+            # if len(u1) >= 1:
             send_control(
                 u1[1][0].item(), u1[0][0].item(), data['ptsx'], data['ptsy'])
+            # u1.pop()
+            # print (u1)
             # send_control(0, 1)
         except Exception as e:
             print(e)
